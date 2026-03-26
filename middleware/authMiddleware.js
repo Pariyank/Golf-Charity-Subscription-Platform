@@ -1,6 +1,5 @@
 const jwt = require("jsonwebtoken");
 
-// Ensure it is exported as a property named 'protect'
 exports.protect = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
 
@@ -11,6 +10,6 @@ exports.protect = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (error) {
-    res.status(401).json({ message: "Invalid or expired token" });
+    res.status(401).json({ message: "Invalid token" });
   }
 };
