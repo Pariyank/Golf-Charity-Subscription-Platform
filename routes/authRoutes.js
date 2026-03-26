@@ -1,9 +1,16 @@
 const express = require("express");
 const router = express.Router();
-const { register, login, firebaseLogin } = require("../controllers/authController");
+const authController = require("../controllers/authController");
+const { protect } = require("../middleware/authMiddleware");
 
-router.post("/register", register);
-router.post("/login", login);
-router.post("/firebase-login", firebaseLogin);
+// Manual Auth
+router.post("/register", authController.register);
+router.post("/login", authController.login);
+
+// Google/Firebase Auth
+router.post("/firebase-login", authController.firebaseLogin);
+
+// Profile logic (Used by Frontend Navbar to show profile icon)
+router.get("/me", protect, authController.getMe);
 
 module.exports = router;
