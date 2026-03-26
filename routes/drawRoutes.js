@@ -5,17 +5,17 @@ const {
   getDraws, 
   getUserWinnings 
 } = require("../controllers/drawController");
-const { protect } = require("../middleware/authMiddleware");
 
-// Admin/System Route
-router.post("/run", protect, runDraw);
+// IMPORTANT: Destructure BOTH protect and authorize here
+const { protect, authorize } = require("../middleware/authMiddleware");
 
-// Admin List Route
-router.get("/", protect, getDraws);
-
-// User Winnings Route (Requirement 10)
-router.get("/user-winnings", protect, getUserWinnings);
-
+// Admin Only: Run Draw
 router.post("/run", protect, authorize("admin"), runDraw);
+
+// Admin Only: View all draws
+router.get("/", protect, authorize("admin"), getDraws);
+
+// Subscriber/Admin: View personal winnings
+router.get("/user-winnings", protect, getUserWinnings);
 
 module.exports = router;
