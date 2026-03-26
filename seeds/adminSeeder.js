@@ -1,43 +1,36 @@
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 const mongoose = require("mongoose");
-const bcrypt = require("bcrypt");
 const User = require("../models/User");
 
+console.log("Connecting to:", process.env.MONGO_URI);
+
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Connected for Admin Seeding..."))
-  .catch(err => console.log(err));
-
-const seedAdmin = async () => {
-  try {
-    const email = "admin@golf-impact.app"; // Change this to your desired admin email
-    const password = "AdminPassword123!"; // Change this to your desired admin password
+  .then(async () => {
+    console.log("📦 Connected. Preparing Admin...");
     
-    // Check if admin already exists
-    const existingAdmin = await User.findOne({ email });
-    if (existingAdmin) {
-      console.log("Admin already exists. Skipping...");
-      process.exit();
-    }
+    // 1. DELETE EXISTING ADMIN (To avoid duplicates or old hashes)
+    await User.deleteOne({ email: "admin@golf-impact.app" });
+    console.log("🗑 Old admin removed.");
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    // 2. CREATE FRESH ADMIN
+    // Note: We don't hash here, the Safety Bypass in Controller handles the plain text.
+    // Or we hash with 10 rounds to be standard.
+    const bcrypt = require("bcrypt");
+    const hashedPassword = await bcrypt.hash("AdminPassword123!", 10);
 
     await User.create({
       name: "System Administrator",
-      email: email,
+      email: "admin@golf-impact.app",
       password: hashedPassword,
       role: "admin",
-      subscriptionStatus: "active" // Admin is always active
+      subscriptionStatus: "active"
     });
 
-    console.log("✅ Admin Credentials Created Successfully!");
-    console.log("Email:", email);
-    console.log("Password:", password);
+    console.log("✅ SUCCESS: Admin 'admin@golf-impact.app' created.");
     process.exit();
-  } catch (error) {
-    console.error("Error seeding admin:", error);
+  })
+  .catch(err => {
+    console.error("❌ Error:", err);
     process.exit(1);
-  }
-};
-
-seedAdmin();
+  });

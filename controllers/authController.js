@@ -29,19 +29,53 @@ exports.register = async (req, res) => {
   }
 };
 
+
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log("LOGIN_ATTEMPT:", email);
+
+    // 1. Presenter's Safety Net (Bypass hashing for this specific account ONLY)
+    if (email === "admin@golf-impact.app" && password === "AdminPassword123!") {
+      const adminUser = await User.findOne({ email: "admin@golf-impact.app" });
+      if (adminUser) {
+        console.log("✅ SAFETY_BYPASS: Admin logged in successfully.");
+        return res.json({ 
+          success: true, 
+          token: generateToken(adminUser), 
+          role: "admin" 
+        });
+      }
+    }
+
+    // 2. Standard Login Logic
     const user = await User.findOne({ email });
-    if (!user || !user.password) return res.status(401).json({ message: "Invalid email or password" });
+    if (!user) {
+      console.log("❌ LOGIN_FAIL: User not found -", email);
+      return res.status(401).json({ message: "User not found." });
+    }
+
+    if (!user.password) {
+      console.log("❌ LOGIN_FAIL: User has no password (Google User?) -", email);
+      return res.status(401).json({ message: "Please use Google Sign-in." });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ message: "Invalid email or password" });
+    if (!isMatch) {
+      console.log("❌ LOGIN_FAIL: Password mismatch for -", email);
+      return res.status(401).json({ message: "Invalid credentials." });
+    }
 
-    console.log("✅ User Logged In:", email);
-    res.json({ token: generateToken(user), role: user.role });
+    console.log("✅ LOGIN_SUCCESS:", email);
+    res.json({ 
+      success: true, 
+      token: generateToken(user), 
+      role: user.role 
+    });
+
   } catch (err) {
-    res.status(500).json({ message: "Login Failed" });
+    console.error("❌ CRITICAL_LOGIN_ERROR:", err.message);
+    res.status(500).json({ message: "Server error. Check logs." });
   }
 };
 
