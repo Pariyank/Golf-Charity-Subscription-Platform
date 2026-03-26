@@ -6,9 +6,16 @@ exports.createCheckoutSession = async (req, res) => {
     const { plan } = req.body;
     const user = await User.findById(req.user.id);
 
+    if (!user) return res.status(404).json({ message: "User not found" });
+
     const priceId = plan === "monthly" 
       ? process.env.STRIPE_MONTHLY_PRICE_ID 
       : process.env.STRIPE_YEARLY_PRICE_ID;
+
+    if (!priceId) {
+      console.error(`❌ ERROR: Stripe Price ID for ${plan} is missing in Render Env Variables!`);
+      return res.status(500).json({ message: "Stripe Configuration Error: Missing Price ID" });
+    }
 
     const session = await stripe.checkout.sessions.create({
       customer_email: user.email,
@@ -17,15 +24,12 @@ exports.createCheckoutSession = async (req, res) => {
       mode: "subscription",
       success_url: `${process.env.CLIENT_URL}/dashboard?success=true`,
       cancel_url: `${process.env.CLIENT_URL}/subscribe`,
-      metadata: { 
-        userId: user._id.toString(), 
-        plan: plan 
-      }
+      metadata: { userId: user._id.toString(), plan }
     });
 
     res.json({ url: session.url });
   } catch (error) {
-    console.error("Stripe Session Error:", error);
+    console.error("STRIPE_SESSION_ERROR:", error.message);
     res.status(500).json({ message: error.message });
   }
 };
