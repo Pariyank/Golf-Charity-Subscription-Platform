@@ -1,22 +1,32 @@
 const User = require("../models/User");
 const Charity = require("../models/Charity");
 
-// USERS
-exports.getUsers = async (req, res) => {
-  const users = await User.find();
+// GET ALL USERS (Searchable)
+exports.getAllUsers = async (req, res) => {
+  const users = await User.find().select("-password").sort({ createdAt: -1 });
   res.json(users);
 };
 
-// DELETE USER
-exports.deleteUser = async (req, res) => {
-  await User.findByIdAndDelete(req.params.id);
-  res.json({ success: true });
+// EDIT USER GOLF SCORES (Requirement 11)
+exports.editUserScore = async (req, res) => {
+  try {
+    const { userId, scoreIndex, newValue } = req.body;
+    const user = await User.findById(userId);
+    
+    if (newValue < 1 || newValue > 45) return res.status(400).json({ message: "Invalid score" });
+    
+    user.scores[scoreIndex].value = newValue;
+    await user.save();
+    res.json({ success: true, scores: user.scores });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
 
-// ADD CHARITY
+// ADD NEW CHARITY
 exports.addCharity = async (req, res) => {
   const charity = await Charity.create(req.body);
-  res.json(charity);
+  res.status(201).json(charity);
 };
 
 // DELETE CHARITY
