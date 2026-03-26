@@ -31,7 +31,7 @@ app.post(
 
 
 app.use(cors({
-  origin: ["https://your-project-id.web.app", "https://your-project-id.firebaseapp.com"],
+  origin: ["https://golf-charity-platform.web.app", "http://localhost:3000"],
   credentials: true
 }));
 app.use(express.json());
