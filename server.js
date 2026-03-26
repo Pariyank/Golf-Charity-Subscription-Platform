@@ -9,15 +9,17 @@ connectDB();
 const app = express();
 
 console.log("✅ CORS CONFIG LOADED");
+
 app.use(cors({
   origin: [
     "http://localhost:3000",
-    "https://golf-charity-platform.web.app"
+    "https://golf-charity-platform.web.app",
+    "https://golf-charity-platform.firebaseapp.com"
   ],
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 }));
-app.options("*", cors());
 
 // 2. STRIPE WEBHOOK (Must be before express.json)
 app.post(
