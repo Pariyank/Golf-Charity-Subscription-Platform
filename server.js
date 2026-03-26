@@ -19,8 +19,12 @@ app.post(
   require("./controllers/stripeController").handleWebhook
 );
 
-// 2. Middleware
-app.use(cors());
+app.use(cors({
+  origin: "*", // ⚠️ ALLOW ALL for the meeting to prevent blocking
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
 app.use(express.json());
 
 // 3. Robust Logger (Fixed the crash)
