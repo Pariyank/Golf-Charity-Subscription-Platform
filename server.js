@@ -8,6 +8,10 @@ connectDB();
 
 const app = express();
 
+app.get("/api/test-connection", (req, res) => {
+  res.json({ message: "Backend is reachable! 🚀", timestamp: new Date() });
+});
+
 // 1. Webhook MUST stay above express.json()
 app.post(
   "/api/stripe/webhook",
@@ -27,6 +31,8 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+
 
 // 4. Routes
 app.use("/api/auth", require("./routes/authRoutes"));
