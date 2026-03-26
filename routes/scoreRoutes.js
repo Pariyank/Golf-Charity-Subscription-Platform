@@ -1,19 +1,14 @@
 const express = require("express");
 const router = express.Router();
-const { 
-  addScore, 
-  getScores, 
-  deleteScore, 
-  editScore 
-} = require("../controllers/scoreController");
+const scoreController = require("../controllers/scoreController");
 const { protect } = require("../middleware/authMiddleware");
-const { requireActiveSubscription } = require("../middleware/subscriptionMiddleware");
 
-// All score routes are protected
-router.get("/", protect, getScores);
-router.post("/add", protect, addScore);
-router.delete("/:id", protect, deleteScore);
-router.put("/:id", protect, editScore);
-router.post("/add", protect, requireActiveSubscription, addScore);
+// All routes are protected by the JWT check
+router.get("/", protect, scoreController.getScores);
+router.post("/add", protect, scoreController.addScore);
+
+// Use :id for specific score management (Requirement 11)
+router.delete("/:id", protect, scoreController.deleteScore);
+router.put("/:id", protect, scoreController.editScore);
 
 module.exports = router;
