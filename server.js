@@ -8,8 +8,7 @@ connectDB();
 
 const app = express();
 
-// 1. ABSOLUTE FIRST PRIORITY: CORS
-// This handles the "Preflight" requests that are currently failing in your log
+console.log("✅ CORS CONFIG LOADED");
 app.use(cors({
   origin: [
     "http://localhost:3000",
@@ -18,6 +17,7 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
+app.options("*", cors());
 
 // 2. STRIPE WEBHOOK (Must be before express.json)
 app.post(
