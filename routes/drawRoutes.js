@@ -16,4 +16,6 @@ router.get("/", protect, getDraws);
 // User Winnings Route (Requirement 10)
 router.get("/user-winnings", protect, getUserWinnings);
 
+router.post("/run", protect, authorize("admin"), runDraw);
+
 module.exports = router;
