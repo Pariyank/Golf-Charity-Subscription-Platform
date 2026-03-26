@@ -3,11 +3,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 const generateToken = (user) => {
-  return jwt.sign(
-    { id: user._id, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: "7d" }
-  );
+  return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
 exports.register = async (req, res) => {
@@ -18,54 +14,33 @@ exports.register = async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-
     const user = await User.create({ name, email, password: hashedPassword, role: "subscriber" });
     
-    console.log("✅ New User Registered:", email);
+    console.log("SUCCESS: User registered", email);
     res.status(201).json({ token: generateToken(user), role: user.role });
   } catch (err) {
-    console.error("Reg Error:", err.message);
-    res.status(500).json({ message: "Registration Failed" });
+    res.status(500).json({ message: "Registration error" });
   }
 };
 
-
 exports.login = async (req, res) => {
-  const { email, password } = req.body;
-  console.log("=== LOGIN ATTEMPT RECEIVED ===");
-  console.log("Email:", email);
-
   try {
-    // EMERGENCY BYPASS FOR ADMIN
+    const { email, password } = req.body;
+    // Admin Bypass for meeting
     if (email === "admin@golf-impact.app" && password === "AdminPassword123!") {
-      let admin = await User.findOne({ email });
-      if (!admin) {
-          // If the seeder failed, create him right here on the fly
-          admin = await User.create({
-              name: "System Admin",
-              email: "admin@golf-impact.app",
-              password: await bcrypt.hash("AdminPassword123!", 10),
-              role: "admin",
-              subscriptionStatus: "active"
-          });
-      }
-      return res.json({ 
-        token: generateToken(admin), 
-        role: "admin" 
-      });
+       const admin = await User.findOne({ email });
+       return res.json({ token: generateToken(admin), role: "admin" });
     }
 
-    // STANDARD LOGIC
     const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: "User not found" });
+    if (!user || !user.password) return res.status(401).json({ message: "Invalid email or password" });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
 
     res.json({ token: generateToken(user), role: user.role });
   } catch (err) {
-    console.error("LOGIN_CRASH:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Login error" });
   }
 };
 
@@ -73,29 +48,20 @@ exports.firebaseLogin = async (req, res) => {
   try {
     const { name, email, avatar, firebaseUID } = req.body;
     let user = await User.findOne({ email });
-
-    const adminEmails = ["sikarwarpariyank@gmail.com"]; 
-    const roleToAssign = adminEmails.includes(email) ? "admin" : "subscriber";
+    const isAdmin = email === "sikarwarpariyank@gmail.com";
 
     if (!user) {
-      user = await User.create({ name, email, avatar, firebaseUID, role: roleToAssign });
-    } else {
-      user.avatar = avatar;
-      user.role = roleToAssign;
-      await user.save();
+      user = await User.create({ name, email, avatar, firebaseUID, role: isAdmin ? "admin" : "subscriber" });
     }
-
-    console.log("✅ Google Auth Success:", email);
     res.json({ token: generateToken(user), role: user.role });
   } catch (err) {
-    res.status(500).json({ message: "Google Auth Sync failed" });
+    res.status(500).json({ message: "Google Auth error" });
   }
 };
 
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password").populate("selectedCharity");
-    if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
   } catch (err) {
     res.status(401).json({ message: "Unauthorized" });
