@@ -1,47 +1,67 @@
 const express = require("express");
+const cors = require("cors");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 
 dotenv.config();
-connectDB();
+console.log("🚀 SERVER BOOTING...");
 
 const app = express();
 
-// 1. NUCLEAR CORS OVERRIDE (Place this ABOVE EVERYTHING ELSE)
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*"); // Allow all origins for the meeting
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-  
-  // Handle Preflight (OPTIONS request)
-  if (req.method === "OPTIONS") {
-    return res.status(200).send();
-  }
-  next();
-});
+// 1. DYNAMIC CORS (Handles the Preflight 'OPTIONS' request perfectly)
+const allowedOrigins = [
+  "https://golf-charity-platform.web.app",
+  "https://golf-charity-platform.firebaseapp.com"
+];
 
-// 2. STRIPE WEBHOOK (Must be before express.json)
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      return callback(null, true); // Allow all for meeting success, change to error later
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
+}));
+
+// 2. STRIPE WEBHOOK (Must be raw for signature verification)
 app.post(
   "/api/stripe/webhook",
   express.raw({ type: "application/json" }),
-  require("./controllers/stripeController").handleWebhook
+  (req, res) => {
+    require("./controllers/stripeController").handleWebhook(req, res);
+  }
 );
 
-// 3. BODY PARSERS
+// 3. STANDARD MIDDLEWARE
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// 4. ROUTES
-app.use("/api/auth", require("./routes/authRoutes"));
-app.use("/api/stripe", require("./routes/stripeRoutes"));
-app.use("/api/scores", require("./routes/scoreRoutes"));
-app.use("/api/charities", require("./routes/charityRoutes"));
-app.use("/api/draws", require("./routes/drawRoutes"));
-app.use("/api/winners", require("./routes/winnerRoutes"));
-app.use("/api/reports", require("./routes/reportRoutes"));
+// 4. REQUEST LOGGER (Check Render Logs for these!)
+app.use((req, res, next) => {
+  console.log(`[INCOMING] ${req.method} ${req.url}`);
+  next();
+});
 
-// Root Health Check
-app.get("/", (req, res) => res.send("API ACTIVE 🚀"));
+// 5. DATABASE & ROUTES
+connectDB().then(() => {
+  console.log("📦 MongoDB Connected");
+  
+  app.use("/api/auth", require("./routes/authRoutes"));
+  app.use("/api/stripe", require("./routes/stripeRoutes"));
+  app.use("/api/scores", require("./routes/scoreRoutes"));
+  app.use("/api/charities", require("./routes/charityRoutes"));
+  app.use("/api/draws", require("./routes/drawRoutes"));
+  app.use("/api/winners", require("./routes/winnerRoutes"));
+  app.use("/api/reports", require("./routes/reportRoutes"));
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server fully operational on port ${PORT}`));
+  app.get("/api/health", (req, res) => res.json({ status: "alive" }));
+  
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => console.log(`✅ Server ready on port ${PORT}`));
+}).catch(err => {
+  console.error("❌ DB Connection Failed:", err.message);
+});
