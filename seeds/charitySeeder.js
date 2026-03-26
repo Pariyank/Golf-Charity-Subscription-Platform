@@ -2,7 +2,6 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const Charity = require("../models/Charity");
 
-// Connect to your MongoDB Atlas (Ensure MONGO_URI is in your .env)
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected for Seeding..."))
   .catch(err => console.log(err));
@@ -61,11 +60,9 @@ const charities = [
 
 const seedDB = async () => {
   try {
-    // 1. Clear existing charities
     await Charity.deleteMany({});
     console.log("Old charities removed.");
 
-    // 2. Insert new premium charities
     await Charity.insertMany(charities);
     console.log("Premium Charities Seeded 🌱");
     

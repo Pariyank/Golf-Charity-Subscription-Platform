@@ -15,8 +15,7 @@ exports.register = async (req, res) => {
     if (userExists) return res.status(400).json({ message: "User already exists" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    
-    // Create User with role: subscriber
+  
     const user = await User.create({
       name,
       email,
@@ -39,7 +38,7 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    // Admin Bypass for meeting
+
     if (email === "admin@golf-impact.app" && password === "AdminPassword123!") {
        const admin = await User.findOne({ email });
        return res.json({ token: generateToken(admin), role: "admin" });

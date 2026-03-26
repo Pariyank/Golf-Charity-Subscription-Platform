@@ -1,12 +1,10 @@
 const Draw = require("../models/Draw");
 const User = require("../models/User");
 
-// 1. RUN DRAW (Requirement 06: Simulation vs Official)
 exports.runDraw = async (req, res) => {
   try {
     const { type, isSimulation } = req.body;
     
-    // Generate Numbers
     let winningNumbers = [];
     if (type === "algorithm") {
       const allScores = await User.aggregate([
@@ -23,7 +21,7 @@ exports.runDraw = async (req, res) => {
     }
 
     const activeSubscribers = await User.find({ subscriptionStatus: "active" });
-    const poolAmount = activeSubscribers.length * 499; // Base pool calculation
+    const poolAmount = activeSubscribers.length * 499;
     
     let tiers = { five: [], four: [], three: [] };
 
@@ -35,7 +33,6 @@ exports.runDraw = async (req, res) => {
       else if (matches === 3) tiers.three.push(user);
     });
 
-    // Requirement 07: Prize Logic
     const prizeDist = {
       five: poolAmount * 0.40,
       four: poolAmount * 0.35,
@@ -55,7 +52,6 @@ exports.runDraw = async (req, res) => {
 
     if (isSimulation) return res.json({ winningNumbers, stats });
 
-    // Official Publishing
     const results = [];
     ['five', 'four', 'three'].forEach(t => {
       const count = t === 'five' ? 5 : t === 'four' ? 4 : 3;
@@ -81,7 +77,6 @@ exports.runDraw = async (req, res) => {
   }
 };
 
-// 2. GET ALL DRAWS (Requirement 11: Admin Management)
 exports.getDraws = async (req, res) => {
   try {
     const draws = await Draw.find()
@@ -93,7 +88,6 @@ exports.getDraws = async (req, res) => {
   }
 };
 
-// 3. GET USER WINNINGS (Requirement 10: User Dashboard)
 exports.getUserWinnings = async (req, res) => {
   try {
     const draws = await Draw.find({ "results.user": req.user.id });

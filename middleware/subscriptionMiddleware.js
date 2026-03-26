@@ -3,7 +3,7 @@ const User = require("../models/User");
 exports.requireActiveSubscription = async (req, res, next) => {
   const user = await User.findById(req.user.id);
   
-  if (user.role === 'admin') return next(); // Admins bypass sub check
+  if (user.role === 'admin') return next(); 
 
   if (user.subscriptionStatus !== "active") {
     return res.status(403).json({ 

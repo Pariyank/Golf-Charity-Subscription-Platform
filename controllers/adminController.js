@@ -1,13 +1,12 @@
 const User = require("../models/User");
 const Charity = require("../models/Charity");
 
-// GET ALL USERS (Searchable)
+
 exports.getAllUsers = async (req, res) => {
   const users = await User.find().select("-password").sort({ createdAt: -1 });
   res.json(users);
 };
 
-// EDIT USER GOLF SCORES (Requirement 11)
 exports.editUserScore = async (req, res) => {
   try {
     const { userId, scoreIndex, newValue } = req.body;
@@ -23,13 +22,11 @@ exports.editUserScore = async (req, res) => {
   }
 };
 
-// ADD NEW CHARITY
 exports.addCharity = async (req, res) => {
   const charity = await Charity.create(req.body);
   res.status(201).json(charity);
 };
 
-// DELETE CHARITY
 exports.deleteCharity = async (req, res) => {
   await Charity.findByIdAndDelete(req.params.id);
   res.json({ success: true });

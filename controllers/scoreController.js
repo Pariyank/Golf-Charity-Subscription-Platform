@@ -1,10 +1,9 @@
 const User = require("../models/User");
 
-// 1. GET ALL SCORES (Requirement 05: Latest first)
+
 exports.getScores = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    // Return scores in reverse order (most recent first)
     const sortedScores = user.scores.slice().reverse();
     res.json({ scores: sortedScores });
   } catch (error) {
@@ -12,7 +11,6 @@ exports.getScores = async (req, res) => {
   }
 };
 
-// 2. ADD SCORE (Requirement 05: 1-45 range, keep only latest 5)
 exports.addScore = async (req, res) => {
   try {
     const { value, date } = req.body;
@@ -23,10 +21,8 @@ exports.addScore = async (req, res) => {
 
     const user = await User.findById(req.user.id);
 
-    // FIFO Logic: Add to the end, then check length
     user.scores.push({ value: Number(value), date: date || new Date() });
 
-    // If more than 5, remove the oldest (first in array)
     if (user.scores.length > 5) {
       user.scores.shift();
     }
@@ -42,13 +38,11 @@ exports.addScore = async (req, res) => {
   }
 };
 
-// 3. DELETE SCORE (Fixes the "argument handler must be a function" error)
 exports.deleteScore = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     const scoreId = req.params.id;
 
-    // Filter out the score with the matching ID
     user.scores = user.scores.filter((s) => s._id.toString() !== scoreId);
     
     await user.save();
@@ -58,7 +52,6 @@ exports.deleteScore = async (req, res) => {
   }
 };
 
-// 4. EDIT SCORE
 exports.editScore = async (req, res) => {
   try {
     const { value } = req.body;

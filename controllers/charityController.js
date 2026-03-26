@@ -1,7 +1,6 @@
 const Charity = require("../models/Charity");
 const User = require("../models/User");
 
-// 1. GET ALL CHARITIES (Requirement 08: Search & Filter)
 exports.getCharities = async (req, res) => {
   try {
     const { search, category } = req.query;
@@ -21,12 +20,10 @@ exports.getCharities = async (req, res) => {
   }
 };
 
-// 2. GET FEATURED (Requirement 08: Spotlight section)
 exports.getFeatured = async (req, res) => {
   try {
     const charity = await Charity.findOne({ featured: true });
     if (!charity) {
-      // Fallback to the first charity if none are marked as featured
       const fallback = await Charity.findOne();
       return res.json(fallback);
     }
@@ -36,12 +33,11 @@ exports.getFeatured = async (req, res) => {
   }
 };
 
-// 3. SELECT/UPDATE CHARITY IMPACT (Requirement 08: 10% Minimum)
 exports.selectCharity = async (req, res) => {
   try {
     const { charityId, contribution } = req.body;
 
-    // PRD Check: Minimum 10% contribution required
+  
     if (contribution < 10) {
       return res.status(400).json({ message: "Minimum 10% contribution required." });
     }
@@ -61,7 +57,6 @@ exports.selectCharity = async (req, res) => {
   }
 };
 
-// 4. CHARITY STATS (Requirement 11: Admin Reports)
 exports.charityStats = async (req, res) => {
   try {
     const stats = await User.aggregate([

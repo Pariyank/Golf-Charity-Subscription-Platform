@@ -1,7 +1,6 @@
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const User = require("../models/User");
 
-// 1. CREATE CHECKOUT SESSION
 exports.createCheckoutSession = async (req, res) => {
   try {
     const { plan } = req.body;
@@ -16,7 +15,6 @@ exports.createCheckoutSession = async (req, res) => {
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
-      // Use env variable for CLIENT_URL (Firebase URL)
       success_url: `${process.env.CLIENT_URL}/dashboard?success=true`,
       cancel_url: `${process.env.CLIENT_URL}/subscribe`,
       metadata: { 
@@ -32,7 +30,6 @@ exports.createCheckoutSession = async (req, res) => {
   }
 };
 
-// 2. HANDLE WEBHOOK
 exports.handleWebhook = async (req, res) => {
   const sig = req.headers["stripe-signature"];
   let event;
@@ -52,18 +49,16 @@ exports.handleWebhook = async (req, res) => {
 
   switch (event.type) {
     case "checkout.session.completed":
-      // The handshake: Finding the user via metadata we sent earlier
       await User.findByIdAndUpdate(session.metadata.userId, {
         subscriptionStatus: "active",
         subscriptionType: session.metadata.plan,
         stripeCustomerId: session.customer,
-        subscriptionId: session.subscription // Useful for cancellations
+        subscriptionId: session.subscription 
       });
       console.log(`✅ Subscription Activated for User: ${session.metadata.userId}`);
       break;
     
     case "customer.subscription.deleted":
-      // Deactivate user when subscription ends
       await User.findOneAndUpdate({ stripeCustomerId: session.customer }, {
         subscriptionStatus: "inactive",
         subscriptionType: "none"

@@ -1,7 +1,6 @@
 const Draw = require("../models/Draw");
 const User = require("../models/User");
 
-// 1. UPLOAD PROOF (Requirement 09)
 exports.uploadProof = async (req, res) => {
   try {
     const { drawId } = req.body;
@@ -12,7 +11,7 @@ exports.uploadProof = async (req, res) => {
 
     if (!result) return res.status(403).json({ message: "No winning record found for this user." });
 
-    result.proofImage = req.file.path; // Cloudinary URL
+    result.proofImage = req.file.path;
     result.verificationStatus = "pending";
 
     await draw.save();
@@ -22,10 +21,9 @@ exports.uploadProof = async (req, res) => {
   }
 };
 
-// 2. ADMIN VERIFY (Requirement 11)
 exports.verifyWinner = async (req, res) => {
   try {
-    const { drawId, userId, status } = req.body; // status: 'approved' or 'rejected'
+    const { drawId, userId, status } = req.body; 
 
     const draw = await Draw.findById(drawId);
     const result = draw.results.find(r => r.user.toString() === userId);
@@ -33,8 +31,7 @@ exports.verifyWinner = async (req, res) => {
     if (!result) return res.status(404).json({ message: "Result not found." });
 
     result.verificationStatus = status;
-    
-    // If approved, set payment to pending
+
     if (status === "approved") {
         result.paymentStatus = "pending";
     }
@@ -46,7 +43,6 @@ exports.verifyWinner = async (req, res) => {
   }
 };
 
-// 3. MARK PAID (Requirement 09: Pending -> Paid)
 exports.markPaid = async (req, res) => {
   try {
     const { drawId, userId } = req.body;

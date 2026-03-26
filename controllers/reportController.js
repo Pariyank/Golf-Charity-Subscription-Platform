@@ -4,25 +4,19 @@ const Charity = require("../models/Charity");
 
 exports.getStats = async (req, res) => {
   try {
-    // 1. Total Users (Requirement 11)
     const totalUsers = await User.countDocuments();
     const activeSubscribers = await User.countDocuments({ subscriptionStatus: "active" });
 
-    // 2. Total Prize Pool (Requirement 11)
-    // Aggregates all prizes ever distributed across all draws
     const prizeStats = await Draw.aggregate([
       { $unwind: "$results" },
       { $group: { _id: null, totalDistributed: { $sum: "$results.prize" } } }
     ]);
 
-    // 3. Charity Contribution Totals (Requirement 11)
-    // Calculates total monthly commitment (10% min of 499 per active user)
     const charityStats = await User.aggregate([
       { $match: { subscriptionStatus: "active" } },
       { $group: { _id: null, totalMonthlyImpact: { $sum: { $multiply: ["$charityContribution", 4.99] } } } }
     ]);
 
-    // 4. Draw Statistics (Requirement 11)
     const totalDraws = await Draw.countDocuments();
     const lastDraw = await Draw.findOne().sort({ createdAt: -1 });
 
