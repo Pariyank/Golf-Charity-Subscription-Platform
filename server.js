@@ -19,6 +19,11 @@ app.use(cors({
   credentials: true
 }));
 
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} request to ${req.url}`);
+  if (Object.keys(req.body).length) console.log("Body Payload:", JSON.stringify(req.body));
+  next();
+});
 // B. STRIPE WEBHOOK (MUST BE BEFORE express.json())
 // Stripe needs the RAW body to verify the signature. 
 app.post(
