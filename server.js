@@ -11,10 +11,12 @@ const app = express();
 // 1. ABSOLUTE FIRST PRIORITY: CORS
 // This handles the "Preflight" requests that are currently failing in your log
 app.use(cors({
-  origin: ["https://golf-charity-platform.web.app", "https://golf-charity-platform.firebaseapp.com"],
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  origin: [
+    "http://localhost:3000",
+    "https://golf-charity-platform.web.app"
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
 }));
 
 // 2. STRIPE WEBHOOK (Must be before express.json)
