@@ -11,30 +11,21 @@ const generateToken = (user) => {
 };
 
 exports.register = async (req, res) => {
-  console.log("LOG: Registration Hit - Payload:", req.body);
   try {
     const { name, email, password } = req.body;
-    if (!name || !email || !password) {
-       console.log("LOG: Registration Failed - Missing Fields");
-       return res.status(400).json({ message: "All fields are required" });
-    }
-
     const userExists = await User.findOne({ email });
-    if (userExists) {
-      console.log("LOG: Registration Failed - User Exists:", email);
-      return res.status(400).json({ message: "User already exists" });
-    }
+    if (userExists) return res.status(400).json({ message: "Email already exists" });
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const user = await User.create({ name, email, password: hashedPassword });
-    console.log("LOG: Registration Success - New User ID:", user._id);
-
+    const user = await User.create({ name, email, password: hashedPassword, role: "subscriber" });
+    
+    console.log("✅ New User Registered:", email);
     res.status(201).json({ token: generateToken(user), role: user.role });
   } catch (err) {
-    console.error("LOG: CRITICAL REG ERROR:", err.message);
-    res.status(500).json({ message: "Database Error" });
+    console.error("Reg Error:", err.message);
+    res.status(500).json({ message: "Registration Failed" });
   }
 };
 
@@ -42,15 +33,15 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-
     if (!user || !user.password) return res.status(401).json({ message: "Invalid email or password" });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ message: "Invalid email or password" });
 
+    console.log("✅ User Logged In:", email);
     res.json({ token: generateToken(user), role: user.role });
   } catch (err) {
-    res.status(500).json({ message: "Login failed" });
+    res.status(500).json({ message: "Login Failed" });
   }
 };
 
@@ -65,11 +56,12 @@ exports.firebaseLogin = async (req, res) => {
     if (!user) {
       user = await User.create({ name, email, avatar, firebaseUID, role: roleToAssign });
     } else {
-      user.firebaseUID = firebaseUID;
+      user.avatar = avatar;
       user.role = roleToAssign;
       await user.save();
     }
 
+    console.log("✅ Google Auth Success:", email);
     res.json({ token: generateToken(user), role: user.role });
   } catch (err) {
     res.status(500).json({ message: "Google Auth Sync failed" });
@@ -79,6 +71,7 @@ exports.firebaseLogin = async (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password").populate("selectedCharity");
+    if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
   } catch (err) {
     res.status(401).json({ message: "Unauthorized" });
