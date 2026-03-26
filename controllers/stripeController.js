@@ -1,6 +1,7 @@
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const User = require("../models/User");
 
+// 1. CREATE CHECKOUT SESSION
 exports.createCheckoutSession = async (req, res) => {
   try {
     const { plan } = req.body;
@@ -15,24 +16,35 @@ exports.createCheckoutSession = async (req, res) => {
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
-      success_url: `${process.env.CLIENT_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+      // Use env variable for CLIENT_URL (Firebase URL)
+      success_url: `${process.env.CLIENT_URL}/dashboard?success=true`,
       cancel_url: `${process.env.CLIENT_URL}/subscribe`,
-      metadata: { userId: user._id.toString(), plan }
+      metadata: { 
+        userId: user._id.toString(), 
+        plan: plan 
+      }
     });
 
     res.json({ url: session.url });
   } catch (error) {
+    console.error("Stripe Session Error:", error);
     res.status(500).json({ message: error.message });
   }
 };
 
+// 2. HANDLE WEBHOOK
 exports.handleWebhook = async (req, res) => {
   const sig = req.headers["stripe-signature"];
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(
+      req.body, 
+      sig, 
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
   } catch (err) {
+    console.error(`Webhook Signature Verification Failed: ${err.message}`);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
@@ -40,18 +52,23 @@ exports.handleWebhook = async (req, res) => {
 
   switch (event.type) {
     case "checkout.session.completed":
+      // The handshake: Finding the user via metadata we sent earlier
       await User.findByIdAndUpdate(session.metadata.userId, {
         subscriptionStatus: "active",
         subscriptionType: session.metadata.plan,
-        stripeCustomerId: session.customer
+        stripeCustomerId: session.customer,
+        subscriptionId: session.subscription // Useful for cancellations
       });
+      console.log(`✅ Subscription Activated for User: ${session.metadata.userId}`);
       break;
     
     case "customer.subscription.deleted":
+      // Deactivate user when subscription ends
       await User.findOneAndUpdate({ stripeCustomerId: session.customer }, {
         subscriptionStatus: "inactive",
         subscriptionType: "none"
       });
+      console.log(`❌ Subscription Deactivated for Customer: ${session.customer}`);
       break;
   }
 
