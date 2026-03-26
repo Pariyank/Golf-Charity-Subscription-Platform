@@ -8,46 +8,33 @@ connectDB();
 
 const app = express();
 
-// 1. WEBHOOK (Must be before body parsers)
+// 1. ABSOLUTE FIRST PRIORITY: CORS
+// This handles the "Preflight" requests that are currently failing in your log
+app.use(cors({
+  origin: ["https://golf-charity-platform.web.app", "https://golf-charity-platform.firebaseapp.com"],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+// 2. STRIPE WEBHOOK (Must be before express.json)
 app.post(
   "/api/stripe/webhook",
   express.raw({ type: "application/json" }),
   require("./controllers/stripeController").handleWebhook
 );
 
-// 2. AGGRESSIVE CORS OVERRIDE (Fulfills Requirement 13)
-// This manually sets headers for every single request
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "https://golf-charity-platform.web.app");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-  res.header("Access-Control-Allow-Credentials", "true");
-  
-  // Handle Preflight (The 'OPTIONS' request the browser sends first)
-  if (req.method === "OPTIONS") {
-    return res.status(200).send();
-  }
-  next();
-});
-
-// Also use the standard CORS library as a secondary layer
-app.use(cors({
-  origin: "https://golf-charity-platform.web.app",
-  credentials: true
-}));
-
+// 3. BODY PARSERS
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// 3. SAFE LOGGER (Will not crash on GET requests)
+// 4. DIAGNOSTIC LOGGER
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} to ${req.url}`);
-  if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
-    console.log("Payload detected in request body");
-  }
+  console.log(`[LOG] ${new Date().toISOString()} | ${req.method} | ${req.url}`);
   next();
 });
 
-// 4. ROUTES
+// 5. ROUTES
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/stripe", require("./routes/stripeRoutes"));
 app.use("/api/scores", require("./routes/scoreRoutes"));
@@ -56,7 +43,10 @@ app.use("/api/draws", require("./routes/drawRoutes"));
 app.use("/api/winners", require("./routes/winnerRoutes"));
 app.use("/api/reports", require("./routes/reportRoutes"));
 
-app.get("/", (req, res) => res.send("API Heartbeat: Online 🚀"));
+// Root Health Check
+app.get("/", (req, res) => {
+  res.status(200).json({ status: "API is active", version: "1.0.0" });
+});
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server fully operational on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Production Server Running on Port ${PORT}`));
