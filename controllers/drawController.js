@@ -1,31 +1,19 @@
 const Draw = require("../models/Draw");
 const User = require("../models/User");
-const { sendWinnerEmail } = require('../utils/emailService');
 
-// Helper: Calculate 40/35/25 split
-const calculatePrizes = (totalPool, winnersCount) => {
-  const distribution = {
-    fiveMatch: totalPool * 0.40,
-    fourMatch: totalPool * 0.35,
-    threeMatch: totalPool * 0.25
-  };
-
-  return {
-    prizePerFive: winnersCount.five > 0 ? distribution.fiveMatch / winnersCount.five : 0,
-    prizePerFour: winnersCount.four > 0 ? distribution.fourMatch / winnersCount.four : 0,
-    prizePerThree: winnersCount.three > 0 ? distribution.threeMatch / winnersCount.three : 0,
-    rollover: winnersCount.five === 0 ? distribution.fiveMatch : 0
-  };
-};
-
+// 1. RUN DRAW (Requirement 06: Simulation vs Official)
 exports.runDraw = async (req, res) => {
   try {
-    const { type, isSimulation } = req.body; // PRD: Support simulation mode
+    const { type, isSimulation } = req.body;
     
-    // 1. Generate Numbers (Standard or Algorithmic)
+    // Generate Numbers
     let winningNumbers = [];
     if (type === "algorithm") {
-      const allScores = await User.aggregate([{ $unwind: "$scores" }, { $group: { _id: "$scores.value", count: { $sum: 1 } } }, { $sort: { count: -1 } }]);
+      const allScores = await User.aggregate([
+        { $unwind: "$scores" }, 
+        { $group: { _id: "$scores.value", count: { $sum: 1 } } }, 
+        { $sort: { count: -1 } }
+      ]);
       winningNumbers = allScores.slice(0, 5).map(s => s._id);
     } else {
       while (winningNumbers.length < 5) {
@@ -34,62 +22,91 @@ exports.runDraw = async (req, res) => {
       }
     }
 
-    // 2. Identify Winners
-    const activeSubscribers = await User.find({ subscriptionStatus: "active" }).populate('scores');
-    const poolAmount = activeSubscribers.length * 499; // Simple math for now based on monthly
+    const activeSubscribers = await User.find({ subscriptionStatus: "active" });
+    const poolAmount = activeSubscribers.length * 499; // Base pool calculation
     
     let tiers = { five: [], four: [], three: [] };
 
     activeSubscribers.forEach(user => {
       const userNums = user.scores.map(s => s.value);
       const matches = userNums.filter(n => winningNumbers.includes(n)).length;
-      
       if (matches === 5) tiers.five.push(user);
       else if (matches === 4) tiers.four.push(user);
       else if (matches === 3) tiers.three.push(user);
     });
 
-    const prizeData = calculatePrizes(poolAmount, {
-      five: tiers.five.length,
-      four: tiers.four.length,
-      three: tiers.three.length
-    });
+    // Requirement 07: Prize Logic
+    const prizeDist = {
+      five: poolAmount * 0.40,
+      four: poolAmount * 0.35,
+      three: poolAmount * 0.25
+    };
 
-    if (!isSimulation) {
-  for (const result of results) {
-    const winner = await User.findById(result.user);
-    if (winner) {
-      await sendWinnerEmail(winner, result.prize, newDraw.month);
-    }
-  }
-}
+    const stats = {
+      totalPool: poolAmount,
+      winners: { five: tiers.five.length, four: tiers.four.length, three: tiers.three.length },
+      prizePerTier: {
+        prizePerFive: tiers.five.length > 0 ? prizeDist.five / tiers.five.length : 0,
+        prizePerFour: tiers.four.length > 0 ? prizeDist.four / tiers.four.length : 0,
+        prizePerThree: tiers.three.length > 0 ? prizeDist.three / tiers.three.length : 0,
+        rollover: tiers.five.length === 0 ? prizeDist.five : 0
+      }
+    };
 
-    // 3. Save Official Draw
+    if (isSimulation) return res.json({ winningNumbers, stats });
+
+    // Official Publishing
     const results = [];
-    ['five', 'four', 'three'].forEach(tier => {
-      const prizeAttr = tier === 'five' ? 'prizePerFive' : tier === 'four' ? 'prizePerFour' : 'prizePerThree';
-      tiers[tier].forEach(u => {
-        results.push({
-          user: u._id,
-          matchCount: tier === 'five' ? 5 : tier === 'four' ? 4 : 3,
-          prize: prizeData[prizeAttr]
-        });
+    ['five', 'four', 'three'].forEach(t => {
+      const count = t === 'five' ? 5 : t === 'four' ? 4 : 3;
+      const prizeKey = t === 'five' ? 'prizePerFive' : t === 'four' ? 'prizePerFour' : 'prizePerThree';
+      tiers[t].forEach(u => {
+        results.push({ user: u._id, matchCount: count, prize: stats.prizePerTier[prizeKey] });
       });
     });
 
     const lastDraw = await Draw.findOne().sort({ createdAt: -1 });
-    const carryOver = lastDraw ? lastDraw.jackpot : 0;
-
-    const newDraw = await Draw.create({
+    const draw = await Draw.create({
       numbers: winningNumbers,
       month: new Date().toLocaleString('default', { month: 'long' }),
       year: new Date().getFullYear(),
       results,
-      jackpot: prizeData.rollover + carryOver, // PRD Requirement 07: Rollover
+      jackpot: stats.prizePerTier.rollover + (lastDraw?.jackpot || 0),
       totalPool: poolAmount
     });
 
-    res.status(201).json(newDraw);
+    res.status(201).json(draw);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// 2. GET ALL DRAWS (Requirement 11: Admin Management)
+exports.getDraws = async (req, res) => {
+  try {
+    const draws = await Draw.find()
+      .populate("results.user", "name email")
+      .sort({ createdAt: -1 });
+    res.json(draws);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// 3. GET USER WINNINGS (Requirement 10: User Dashboard)
+exports.getUserWinnings = async (req, res) => {
+  try {
+    const draws = await Draw.find({ "results.user": req.user.id });
+    const userWinnings = draws.map(draw => {
+      const result = draw.results.find(r => r.user.toString() === req.user.id);
+      return {
+        ...result._doc,
+        drawId: draw._id,
+        month: draw.month,
+        numbers: draw.numbers
+      };
+    });
+    res.json(userWinnings);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
