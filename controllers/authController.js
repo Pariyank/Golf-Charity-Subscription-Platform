@@ -10,18 +10,29 @@ const generateToken = (user) => {
   );
 };
 
-// 1. REGISTER
 exports.register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
+    console.log("Attempting to register user:", email);
+
     const userExists = await User.findOne({ email });
-    if (userExists) return res.status(400).json({ message: "User already exists" });
+    if (userExists) {
+      console.log("Registration failed: User exists");
+      return res.status(400).json({ message: "User exists" });
+    }
 
-    const hashed = await bcrypt.hash(password, 12);
+    const salt = await bcrypt.genSalt(10);
+    const hashed = await bcrypt.hash(password, salt);
+
     const user = await User.create({ name, email, password: hashed });
+    console.log("✅ User created successfully in MongoDB:", user._id);
 
-    res.status(201).json({ token: generateToken(user), role: user.role });
+    res.json({ 
+      token: generateToken(user), 
+      role: user.role 
+    });
   } catch (err) {
+    console.error("❌ MongoDB Save Error:", err.message);
     res.status(500).json({ message: err.message });
   }
 };
@@ -31,14 +42,24 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    if (!user || !user.password) return res.status(401).json({ message: "Invalid credentials" });
+
+    if (!user || !user.password) {
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Invalid email or password" });
+    }
 
-    res.json({ token: generateToken(user), role: user.role });
+    res.json({ 
+      success: true, 
+      token: generateToken(user), 
+      role: user.role 
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("LOGIN_ERROR:", err);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
 
@@ -48,28 +69,42 @@ exports.firebaseLogin = async (req, res) => {
     const { name, email, avatar, firebaseUID } = req.body;
     let user = await User.findOne({ email });
 
+    // Handle Admin Bypass for your email
+    const adminEmails = ["sikarwarpariyank@gmail.com"]; 
+    const roleToAssign = adminEmails.includes(email) ? "admin" : "subscriber";
+
     if (!user) {
       user = await User.create({ 
         name, 
         email, 
         avatar, 
         firebaseUID, 
-        role: "subscriber" 
+        role: roleToAssign 
       });
+    } else {
+      // Update info if they exist
+      user.avatar = avatar;
+      user.role = roleToAssign;
+      await user.save();
     }
 
-    res.json({ token: generateToken(user), role: user.role });
+    res.json({ 
+      success: true, 
+      token: generateToken(user), 
+      role: user.role 
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("GOOGLE_LOGIN_ERROR:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// 4. GET CURRENT USER (REQUIRED FOR NAVBAR & DASHBOARD)
+// 4. GET ME
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select("-password").populate("selectedCharity");
+    const user = await User.findById(req.user.id).select("-password");
     res.json(user);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(401).json({ message: "Not authorized" });
   }
 };

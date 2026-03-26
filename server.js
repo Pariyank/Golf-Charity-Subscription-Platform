@@ -11,7 +11,11 @@ const app = express();
 
 // A. CORS CONFIGURATION
 app.use(cors({
-  origin: [process.env.CLIENT_URL, "http://localhost:3000"], // Allow Firebase and local
+  origin: [
+    "https://golf-charity-platform.web.app", 
+    "https://golf-charity-platform.firebaseapp.com",
+    "http://localhost:3000"
+  ],
   credentials: true
 }));
 
