@@ -9,9 +9,9 @@ const app = express();
 
 console.log("✅ Server starting...");
 
-// ===============================
-// 🔥 CORS + PREFLIGHT (FINAL FIX)
-// ===============================
+// =======================================
+// 🔥 GLOBAL CORS + PREFLIGHT (FINAL FIX)
+// =======================================
 const allowedOrigins = [
   "http://localhost:3000",
   "https://golf-charity-platform.web.app",
@@ -21,6 +21,9 @@ const allowedOrigins = [
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
+  // Always log origin (DEBUG)
+  console.log("Incoming Origin:", origin);
+
   if (allowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
   }
@@ -29,40 +32,41 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Access-Control-Allow-Credentials", "true");
 
-  // 🔥 HANDLE PREFLIGHT REQUEST
+  // 🔥 CRITICAL: Handle OPTIONS BEFORE ANYTHING ELSE
   if (req.method === "OPTIONS") {
+    console.log("✅ Preflight handled");
     return res.status(200).end();
   }
 
   next();
 });
 
-// ===============================
-// 🔥 STRIPE WEBHOOK (RAW BODY)
-// ===============================
+// =======================================
+// 🔥 STRIPE WEBHOOK (RAW BODY ONLY HERE)
+// =======================================
 app.post(
   "/api/stripe/webhook",
   express.raw({ type: "application/json" }),
   require("./controllers/stripeController").handleWebhook
 );
 
-// ===============================
+// =======================================
 // BODY PARSERS
-// ===============================
+// =======================================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ===============================
-// LOGGER (DEBUGGING)
-// ===============================
+// =======================================
+// LOGGER
+// =======================================
 app.use((req, res, next) => {
-  console.log(`[LOG] ${new Date().toISOString()} | ${req.method} | ${req.url}`);
+  console.log(`[LOG] ${req.method} ${req.url}`);
   next();
 });
 
-// ===============================
+// =======================================
 // ROUTES
-// ===============================
+// =======================================
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/stripe", require("./routes/stripeRoutes"));
 app.use("/api/scores", require("./routes/scoreRoutes"));
@@ -71,19 +75,16 @@ app.use("/api/draws", require("./routes/drawRoutes"));
 app.use("/api/winners", require("./routes/winnerRoutes"));
 app.use("/api/reports", require("./routes/reportRoutes"));
 
-// ===============================
+// =======================================
 // HEALTH CHECK
-// ===============================
+// =======================================
 app.get("/", (req, res) => {
-  res.status(200).json({
-    status: "API is active",
-    message: "Golf Charity Platform Backend Running 🚀"
-  });
+  res.json({ status: "API running 🚀" });
 });
 
-// ===============================
-// 🚀 SERVER START (RENDER FIX)
-// ===============================
+// =======================================
+// SERVER START (RENDER FIX)
+// =======================================
 const PORT = process.env.PORT;
 
 app.listen(PORT, "0.0.0.0", () => {
