@@ -7,66 +7,31 @@ connectDB();
 
 const app = express();
 
-console.log("✅ Server starting...");
-
-// =======================================
-// 🔥 GLOBAL CORS + PREFLIGHT (FINAL FIX)
-// =======================================
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://golf-charity-platform.web.app",
-  "https://golf-charity-platform.firebaseapp.com"
-];
-
+// 1. NUCLEAR CORS OVERRIDE (Place this ABOVE EVERYTHING ELSE)
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
-
-  // Always log origin (DEBUG)
-  console.log("Incoming Origin:", origin);
-
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  }
-
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-
-  // 🔥 CRITICAL: Handle OPTIONS BEFORE ANYTHING ELSE
+  res.header("Access-Control-Allow-Origin", "*"); // Allow all origins for the meeting
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  
+  // Handle Preflight (OPTIONS request)
   if (req.method === "OPTIONS") {
-    console.log("✅ Preflight handled");
-    return res.status(200).end();
+    return res.status(200).send();
   }
-
   next();
 });
 
-// =======================================
-// 🔥 STRIPE WEBHOOK (RAW BODY ONLY HERE)
-// =======================================
+// 2. STRIPE WEBHOOK (Must be before express.json)
 app.post(
   "/api/stripe/webhook",
   express.raw({ type: "application/json" }),
   require("./controllers/stripeController").handleWebhook
 );
 
-// =======================================
-// BODY PARSERS
-// =======================================
+// 3. BODY PARSERS
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// =======================================
-// LOGGER
-// =======================================
-app.use((req, res, next) => {
-  console.log(`[LOG] ${req.method} ${req.url}`);
-  next();
-});
-
-// =======================================
-// ROUTES
-// =======================================
+// 4. ROUTES
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/stripe", require("./routes/stripeRoutes"));
 app.use("/api/scores", require("./routes/scoreRoutes"));
@@ -75,18 +40,8 @@ app.use("/api/draws", require("./routes/drawRoutes"));
 app.use("/api/winners", require("./routes/winnerRoutes"));
 app.use("/api/reports", require("./routes/reportRoutes"));
 
-// =======================================
-// HEALTH CHECK
-// =======================================
-app.get("/", (req, res) => {
-  res.json({ status: "API running 🚀" });
-});
+// Root Health Check
+app.get("/", (req, res) => res.send("API ACTIVE 🚀"));
 
-// =======================================
-// SERVER START (RENDER FIX)
-// =======================================
-const PORT = process.env.PORT;
-
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`🚀 Server fully operational on port ${PORT}`));
